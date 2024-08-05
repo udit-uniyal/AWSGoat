@@ -1,5 +1,5 @@
 # Objective
-Detect changes in configuration using AWS Config
+Detect changes in configuration using AWS Configs
 
 # Solution
 
