@@ -49,20 +49,6 @@ jobs:
         scanners: sast
         params: --namespace=${{ github.repository_owner }} --repo-name=${{ github.event.repository.name }} --branch=${{ github.ref }} --cx-flow.filter-severity --cx-flow.filter-category --checkmarx.disable-clubbing=true --repo-url=${{ github.event.repository.url }}
     # Upload the Report for CodeQL/Security Alerts
-    - name: Checkmarx SAST Scan
-      on: [push]
-      jobs:
-        build:
-          runs-on: ubuntu-latest
-          steps:
-          - name: Checkout
-            uses: actions/checkout@v1
-          - name: Checkmarx Action
-            uses: checkmarx-ts/checkmarx-github-action@<version>
-            with:
-              cxServer: https://deu.ast.checkmarx.net/
-              cxToken: eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICIwODVmZjFjZS1lNmU3LTQyYWEtYjkzOS02OTcyYWIyNWZjMWUifQ.eyJpYXQiOjE3MjI4Nzg3MTEsImp0aSI6ImVmNGNiMGRlLWM0Y2EtNDljOS05ZmNiLThjZWUzODZhNzIzMSIsImlzcyI6Imh0dHBzOi8vZGV1LmlhbS5jaGVja21hcngubmV0L2F1dGgvcmVhbG1zL2FjY3Vrbm94LW5mciIsImF1ZCI6Imh0dHBzOi8vZGV1LmlhbS5jaGVja21hcngubmV0L2F1dGgvcmVhbG1zL2FjY3Vrbm94LW5mciIsInN1YiI6ImQ4Yzc3ZjQ0LWRjZDItNDMxMC04MDZiLTUwZjU3MmM3Y2UzZiIsInR5cCI6Ik9mZmxpbmUiLCJhenAiOiJhc3QtYXBwIiwic2Vzc2lvbl9zdGF0ZSI6IjcwZTQwNzkzLTk1OGUtNDI1YS04MGVkLWE5NGIwMzE0NTI3NyIsInNjb3BlIjoib2ZmbGluZV9hY2Nlc3MiLCJzaWQiOiI3MGU0MDc5My05NThlLTQyNWEtODBlZC1hOTRiMDMxNDUyNzcifQ.ey7bc4y3RjyU_A-8S3SGZFLg1JOX30XqJWwXhv3MCS8
-              cxTeam: \CxServer\SP\Company\TeamA
     - name: Upload SARIF file
       uses: github/codeql-action/upload-sarif@v3
       with:
