@@ -4,10 +4,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v1
-    - name: Checkmarx Action
-      uses: checkmarx-ts/checkmarx-github-action@v2021.1.1
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Checkmarx scan
+      uses: checkmarx/ast-github-action@main
       with:
         cxServer: https://deu.iam.checkmarx.net
         cxToken: ${{ secrets.CX_TOKEN }}
