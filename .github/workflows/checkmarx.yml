@@ -40,6 +40,31 @@ jobs:
         run: |
           jq 'walk(if type == "object" and has("level") then .level |= (if . == "none" or . == "note" or . == "warning" or . == "error" then . else "note" end) else . end)' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
+      - name: Append GitHub metadata to SARIF
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          jq --arg repo "$GITHUB_REPOSITORY" \
+             --arg sha "$GITHUB_SHA" \
+             --arg ref "$GITHUB_REF" \
+             --arg run_id "$GITHUB_RUN_ID" \
+             --arg run_number "$GITHUB_RUN_NUMBER" \
+             '.runs[0].invocations += [{
+                "executionSuccessful": true,
+                "toolExecutionNotifications": [],
+                "toolConfigurationNotifications": [],
+                "properties": {
+                  "repository": $repo,
+                  "commit": $sha,
+                  "ref": $ref,
+                  "workflow_run_id": $run_id,
+                  "workflow_run_number": $run_number
+                }
+              }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
       - name: Upload SARIF file to GitHub
         uses: actions/upload-artifact@v3
         with:
