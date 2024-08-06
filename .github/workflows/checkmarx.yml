@@ -51,3 +51,12 @@ jobs:
         with:
           # Path to SARIF file relative to the root of the repository
           sarif_file: cx_result.sarif
+      # - name: Push report to CSPM panel
+      #   env:
+      #     CSPM_URL: ${{ secrets.CSPM_URL }}
+      #     TENANT_ID: ${{ secrets.TENANT_ID }}
+      #     CSPM_TOKEN: ${{ secrets.CSPM_TOKEN }}
+      #   run: |
+      #     curl --location --request POST "https://${{ env.CSPM_URL }}/api/v1/artifact/?tenant_id=${{ env.TENANT_ID }}&data_type=TR&save_to_s3=false" \
+      #     --header "Authorization: Bearer ${{ env.CSPM_TOKEN }}" \
+      #     --form "file=@./cx_result.sarif"
