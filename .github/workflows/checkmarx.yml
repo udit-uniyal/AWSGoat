@@ -47,8 +47,7 @@ jobs:
           GITHUB_REF: ${{ github.ref }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
-          GITHUB_SERVER_URL: ${{ github.server_url }}
-          CI_SOURCE: GitHub # Set this to GitLab or Azure as needed
+          SOURCE: "GitHub"  # Add the source here
         run: |
           GITHUB_URL="${{ github.server_url }}/${{ github.repository }}"
           GITHUB_RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -59,7 +58,7 @@ jobs:
              --arg run_number "$GITHUB_RUN_NUMBER" \
              --arg github_url "$GITHUB_URL" \
              --arg github_run_url "$GITHUB_RUN_URL" \
-             --arg source "$CI_SOURCE" \
+             --arg source "$SOURCE" \
              '.runs[0].invocations += [{
                 "executionSuccessful": true,
                 "toolExecutionNotifications": [],
@@ -71,7 +70,7 @@ jobs:
                   "workflow_run_id": $run_id,
                   "workflow_run_number": $run_number,
                   "repository_url": $github_url,
-                  "workflow_run_url": $github_run_url
+                  "workflow_run_url": $github_run_url,
                   "source": $source
                 }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
