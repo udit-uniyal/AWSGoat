@@ -1,5 +1,3 @@
-# This is a basic workflow to help you get started with Actions
-
 name: Checkmarx Sarif Integration
 
 # Controls when the workflow will run
@@ -7,91 +5,50 @@ on:
   push:
     branches: [ "master" ]
   pull_request:
-    # The branches below must be a subset of the branches above
     branches: [ "master" ]
   schedule:
     - cron: '18 2 * * 5'
+
 permissions:
-  security-events: write  # Add this line to ensure the workflow has permission to upload SARIF files
+  security-events: write  # Allow the workflow to upload SARIF files
   contents: read
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # This step checks out a copy of your repository.
+      # Step to check out the repository
       - name: Checkout repository
         uses: actions/checkout@v2
+
+      # Step to run the Checkmarx scan
       - name: Checkmarx scan
+        id: checkmarx
         uses: checkmarx/ast-github-action@main
         with:
           base_uri: https://deu.iam.checkmarx.net/
           cx_client_id: ${{ secrets.CX_CLIENT_ID }}
           cx_client_secret: ${{ secrets.CX_CLIENT_SECRET }}
           cx_tenant: ${{ secrets.CX_TENANT }} # This should be replaced by users' tenant name
-          # additional_params: --report-format sarif --output-path .
-     
-      # - name: Fix SARIF file levels
-      #   run: |
-      #     jq 'walk(if type == "object" and has("level") then .level |= (if . == "none" or . == "note" or . == "warning" or . == "error" then . else "note" end) else . end)' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
-      # # - name: Append GitHub metadata to SARIF
-      #   env:
-      #     GITHUB_REPOSITORY: ${{ github.repository }}
-      #     GITHUB_SHA: ${{ github.sha }}
-      #     GITHUB_REF: ${{ github.ref }}
-      #     GITHUB_RUN_ID: ${{ github.run_id }}
-      #     GITHUB_RUN_NUMBER: ${{ github.run_number }}
-      #     SOURCE: "GitHub"  # Add the source here
-      #   run: |
-      #     GITHUB_URL="${{ github.server_url }}/${{ github.repository }}"
-      #     GITHUB_RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-      #     jq --arg repo "$GITHUB_REPOSITORY" \
-      #        --arg sha "$GITHUB_SHA" \
-      #        --arg ref "$GITHUB_REF" \
-      #        --arg run_id "$GITHUB_RUN_ID" \
-      #        --arg run_number "$GITHUB_RUN_NUMBER" \
-      #        --arg github_url "$GITHUB_URL" \
-      #        --arg github_run_url "$GITHUB_RUN_URL" \
-      #        --arg source "$SOURCE" \
-      #        '.runs[0].invocations += [{
-      #           "executionSuccessful": true,
-      #           "toolExecutionNotifications": [],
-      #           "toolConfigurationNotifications": [],
-      #           "properties": {
-      #             "repository": $repo,
-      #             "commit": $sha,
-      #             "ref": $ref,
-      #             "workflow_run_id": $run_id,
-      #             "workflow_run_number": $run_number,
-      #             "repository_url": $github_url,
-      #             "workflow_run_url": $github_run_url,
-      #             "source": $source
-      #           }
-      #         }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
-              
-      # # - name: Upload SARIF file to GitHub
-      # #   uses: actions/upload-artifact@v3
-      # #   with:
-      # #     name: sarif-result
-      # #     path: cx_result.sarif
-          
-      # - name: Upload SARIF file
-      #   uses: github/codeql-action/upload-sarif@v3
-      #   with:
-      #     # Path to SARIF file relative to the root of the repository
-      #     sarif_file: cx_result.sarif
-      # - name: Push report to CSPM panel
-      #   env:
-      #     CSPM_URL: ${{ secrets.CSPM_URL }}
-      #     TENANT_ID: ${{ secrets.TENANT_ID }}
-      #     CSPM_TOKEN: ${{ secrets.CSPM_TOKEN }}
-      #   run: |
-      #     curl --location --request POST "https://${{ env.CSPM_URL }}/api/v1/artifact/?tenant_id=${{ env.TENANT_ID }}&data_type=TR&save_to_s3=false" \
-      #     --header "Authorization: Bearer ${{ env.CSPM_TOKEN }}" \
-      #     --form "file=@./cx_result.sarif"
+      # Step to create a JSON output file from the scan results
+      - name: Create JSON output
+        run: |
+          # Extract scan summary and format it as JSON
+          echo '{
+            "scan_summary": {
+              "vulnerabilities": "${{ steps.checkmarx.outputs.vulnerabilities }}",
+              "total": "${{ steps.checkmarx.outputs.total }}",
+              "high": "${{ steps.checkmarx.outputs.high }}",
+              "medium": "${{ steps.checkmarx.outputs.medium }}",
+              "low": "${{ steps.checkmarx.outputs.low }}"
+            }
+          }' > checkmarx_scan_summary.json
+
+      # Step to upload the JSON summary as an artifact
+      - name: Upload JSON summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: checkmarx-scan-summary
+          path: checkmarx_scan_summary.json
