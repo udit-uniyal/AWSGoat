@@ -51,11 +51,16 @@ jobs:
             # Ensure the file exists before extracting lines
             if [ -f "$file" ]; then
               # Extract the snippet between startLine and endLine
-              snippet=$(awk "NR>=$startLine && NR<=$endLine" "$file" | jq -Rs .)
+              snippet=$(awk "NR>=$startLine && NR<=$endLine" "$file")
+              if [ -z "$snippet" ]; then
+                snippet="No content between lines $startLine and $endLine"
+              else
+                snippet=$(echo "$snippet" | jq -Rs .)
+              fi
               echo "Extracted snippet: $snippet"
             else
               # If the file is not found, return a placeholder
-              snippet='File not found or invalid path'
+              snippet="File not found or invalid path: $file"
               echo "File not found: $file"
             fi
 
