@@ -36,8 +36,8 @@ jobs:
 
       - name: Extract and append code snippets to SARIF file
         run: |
-          # Initialize a temporary SARIF file
-          echo '{"runs":[{"results":[]}]}' > results_with_snippets.sarif
+          # Initialize a temporary results file
+          > tmp_results.json
 
           # Loop over all results in the SARIF file
           jq -c '.runs[0].results[]' cx_result.sarif | while IFS= read -r result; do
@@ -48,23 +48,22 @@ jobs:
 
             # Ensure the file exists before extracting lines
             if [ -f "$file" ]; then
+              # Extract the snippet between startLine and endLine
               snippet=$(awk "NR>=$startLine && NR<=$endLine" "$file" | jq -Rs .)
             else
-              snippet='{"text": "File not found or invalid path"}'
+              # If the file is not found, return a placeholder
+              snippet='File not found or invalid path'
             fi
 
             # Update the result with the snippet
             updated_result=$(echo "$result" | jq --arg snippet "$snippet" '.locations[0].physicalLocation.region.snippet = {"text": $snippet}')
 
-            # Append the updated result to the new SARIF file
-            echo "$updated_result" | jq -c '.' >> results_with_snippets.sarif
+            # Append the updated result to the temporary results file
+            echo "$updated_result" >> tmp_results.json
           done
 
           # Merge updated results back into the SARIF structure
-          jq '.runs[0].results = input' cx_result.sarif results_with_snippets.sarif > cx_result_with_snippets.sarif
-
-          # Validate the merged SARIF structure
-          jq '.' cx_result_with_snippets.sarif > /dev/null
+          jq '.runs[0].results = input' cx_result.sarif tmp_results.json > cx_result_with_snippets.sarif
 
           # Replace the original SARIF file with the updated one
           mv cx_result_with_snippets.sarif cx_result.sarif
