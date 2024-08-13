@@ -31,13 +31,8 @@ jobs:
 
       - name: Append code snippets to SARIF file
         run: |
-          jq '.runs[0].results[] |= 
-          .locations[0].physicalLocation.region += 
-          {"snippet": {"text": 
-          (try input_filename | 
-          split("/")[-1] | 
-          gsub("\\.sarif$"; "") 
-          )}}' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
+          jq '.runs[0].results[] |= .locations[0].physicalLocation.region.snippet = {"text": (.[0] | input | (range(.startLine, .endLine + 1) | . // ""))}' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
+
 
       - name: Fix SARIF file levels
         run: |
