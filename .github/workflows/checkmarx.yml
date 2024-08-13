@@ -75,6 +75,10 @@ jobs:
                 }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
               
+      - name: Post-process SARIF file to include code snippets
+        run: |
+          jq '.runs[0].results[] |= . + {"locations": [{"physicalLocation": {"region": {"snippet": {"text": "YOUR CODE SNIPPET HERE"}}}}]}' checkmarx-report.sarif > checkmarx-report-with-snippets.sarif
+      
       - name: Upload SARIF file to GitHub
         uses: actions/upload-artifact@v3
         with:
