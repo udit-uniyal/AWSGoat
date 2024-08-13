@@ -41,9 +41,9 @@ jobs:
             startLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startLine')
             endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine')
 
-            # Extract the corresponding lines of code safely
+            # Check if file exists and extract code snippet
             if [ -f "$file" ]; then
-              snippet=$(sed -n "${startLine},${endLine}p" "$file" | jq -Rs .)
+              snippet=$(awk "NR>=$startLine && NR<=$endLine" "$file" | jq -Rs .)
             else
               snippet='{"text": "File not found or invalid path"}'
             fi
