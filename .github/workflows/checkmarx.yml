@@ -26,37 +26,42 @@ jobs:
           base_uri: https://deu.iam.checkmarx.net/
           cx_client_id: ${{ secrets.CX_CLIENT_ID }}
           cx_client_secret: ${{ secrets.CX_CLIENT_SECRET }}
-          cx_tenant: ${{ secrets.CX_TENANT }} # Replace with your tenant name
+          cx_tenant: ${{ secrets.CX_TENANT }}
           additional_params: --report-format sarif --output-path .
+
+      - name: Inspect SARIF structure (debugging step)
+        run: |
+          # Print the SARIF structure to understand its layout
+          jq '.' cx_result.sarif
 
       - name: Extract and append code snippets to SARIF file
         run: |
-          # Create a temporary SARIF file to collect results with snippets
+          # Initialize a temporary SARIF file
           echo '{"runs":[{"results":[]}]}' > results_with_snippets.sarif
 
           # Loop over all results in the SARIF file
           jq -c '.runs[0].results[]' cx_result.sarif | while IFS= read -r result; do
-            # Extract file path and line numbers from SARIF
+            # Extract file path and line numbers
             file=$(echo "$result" | jq -r '.locations[0].physicalLocation.artifactLocation.uri')
             startLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startLine')
             endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine')
 
-            # Check if file exists and extract code snippet
+            # Ensure the file exists before extracting lines
             if [ -f "$file" ]; then
               snippet=$(awk "NR>=$startLine && NR<=$endLine" "$file" | jq -Rs .)
             else
               snippet='{"text": "File not found or invalid path"}'
             fi
 
-            # Append the code snippet to the result
+            # Update the result with the snippet
             updated_result=$(echo "$result" | jq --arg snippet "$snippet" '.locations[0].physicalLocation.region.snippet = {"text": $snippet}')
 
             # Append the updated result to the new SARIF file
             echo "$updated_result" | jq -c '.' >> results_with_snippets.sarif
           done
 
-          # Finalize the SARIF file structure
-          jq '.runs[0].results = (input | .runs[0].results)' cx_result.sarif < results_with_snippets.sarif > cx_result_with_snippets.sarif
+          # Merge updated results back into the SARIF structure
+          jq '.runs[0].results = input' cx_result.sarif results_with_snippets.sarif > cx_result_with_snippets.sarif
           mv cx_result_with_snippets.sarif cx_result.sarif
 
       - name: Fix SARIF file levels
