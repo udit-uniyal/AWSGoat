@@ -45,13 +45,18 @@ jobs:
             startLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startLine')
             endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine')
 
+            # Debugging: Print file path and line numbers
+            echo "Processing file: $file, startLine: $startLine, endLine: $endLine"
+
             # Ensure the file exists before extracting lines
             if [ -f "$file" ]; then
               # Extract the snippet between startLine and endLine
               snippet=$(awk "NR>=$startLine && NR<=$endLine" "$file" | jq -Rs .)
+              echo "Extracted snippet: $snippet"
             else
               # If the file is not found, return a placeholder
               snippet='File not found or invalid path'
+              echo "File not found: $file"
             fi
 
             # Update the result with the snippet
