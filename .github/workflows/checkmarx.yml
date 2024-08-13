@@ -31,13 +31,12 @@ jobs:
 
       - name: Validate SARIF structure after scan (debugging step)
         run: |
-          # Validate the SARIF file to ensure it's properly formatted after scanning
           jq '.' cx_result.sarif > /dev/null
 
       - name: Extract and append code snippets to SARIF file
         run: |
-          # Initialize a temporary results file
-          > tmp_results.json
+          # Initialize a temporary results file as a JSON array
+          echo '[]' > tmp_results.json
 
           # Loop over all results in the SARIF file
           jq -c '.runs[0].results[]' cx_result.sarif | while IFS= read -r result; do
@@ -59,7 +58,8 @@ jobs:
             updated_result=$(echo "$result" | jq --arg snippet "$snippet" '.locations[0].physicalLocation.region.snippet = {"text": $snippet}')
 
             # Append the updated result to the temporary results file
-            echo "$updated_result" >> tmp_results.json
+            jq --argjson newResult "$updated_result" '. += [$newResult]' tmp_results.json > tmp_results_new.json
+            mv tmp_results_new.json tmp_results.json
           done
 
           # Merge updated results back into the SARIF structure
