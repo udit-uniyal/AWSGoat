@@ -31,8 +31,8 @@ jobs:
 
       - name: Extract and append code snippets to SARIF file
         run: |
-          # Create an empty SARIF file to collect updated results
-          echo '{"runs":[{"results":[]}]}]' > results_with_snippets.sarif
+          # Create a temporary SARIF file to collect results with snippets
+          echo '{"runs":[{"results":[]}]}' > results_with_snippets.sarif
 
           # Loop over all results in the SARIF file
           jq -c '.runs[0].results[]' cx_result.sarif | while IFS= read -r result; do
@@ -41,18 +41,23 @@ jobs:
             startLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startLine')
             endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine')
 
-            # Extract the corresponding lines of code
-            snippet=$(sed -n "${startLine},${endLine}p" "$file" | jq -Rs .)
+            # Extract the corresponding lines of code safely
+            if [ -f "$file" ]; then
+              snippet=$(sed -n "${startLine},${endLine}p" "$file" | jq -Rs .)
+            else
+              snippet='{"text": "File not found or invalid path"}'
+            fi
 
             # Append the code snippet to the result
-            updated_result=$(echo "$result" | jq --arg snippet "$snippet" '.locations[0].physicalLocation.region.snippet.text = $snippet')
+            updated_result=$(echo "$result" | jq --arg snippet "$snippet" '.locations[0].physicalLocation.region.snippet = {"text": $snippet}')
 
             # Append the updated result to the new SARIF file
-            jq --argjson updated_result "$updated_result" '.runs[0].results += [$updated_result]' results_with_snippets.sarif > tmp.sarif && mv tmp.sarif results_with_snippets.sarif
+            echo "$updated_result" | jq -c '.' >> results_with_snippets.sarif
           done
 
-          # Replace the original SARIF file with the updated one
-          mv results_with_snippets.sarif cx_result.sarif
+          # Finalize the SARIF file structure
+          jq '.runs[0].results = (input | .runs[0].results)' cx_result.sarif < results_with_snippets.sarif > cx_result_with_snippets.sarif
+          mv cx_result_with_snippets.sarif cx_result.sarif
 
       - name: Fix SARIF file levels
         run: |
