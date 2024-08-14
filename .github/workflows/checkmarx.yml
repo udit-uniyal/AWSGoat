@@ -53,7 +53,7 @@ jobs:
               snippet=$(awk "NR>=$startLineAdjusted && NR<=$endLineAdjusted" "$file")
               
               # Highlight the specific code based on startColumn and endColumn
-              highlightedSnippet=$(echo "$snippet" | sed -e "${startLineAdjusted}s/^\(.\{$((startColumn - 1))\}\)\(.\{$((endColumn - startColumn + 1))\}\)/\1<<<HIGHLIGHT>>>\2<<<ENDHIGHLIGHT>>>/")
+              highlightedSnippet=$(echo "$snippet" | sed "s/\(^.\{${startColumn}\}\)\(.\{${endColumn-startColumn+1}\}\)/\1<<<HIGHLIGHT>>>\2<<<ENDHIGHLIGHT>>>/")
               
               # Convert the snippet to a JSON string
               snippet=$(echo "$highlightedSnippet" | jq -Rs .)
