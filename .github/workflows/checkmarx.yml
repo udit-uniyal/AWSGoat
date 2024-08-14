@@ -31,53 +31,48 @@ jobs:
 
       - name: Validate SARIF structure after scan (debugging step)
         run: |
-          # Validate the SARIF file to ensure it's properly formatted after scanning
           jq '.' cx_result.sarif > /dev/null
 
-      - name: Extract and append code snippets to SARIF file
+      - name: Extract and append code snippets to SARIF file with highlights
         run: |
-          # Initialize a temporary results file as a JSON array
-          echo '[]' > tmp_results.json
-
-          # Loop over all results in the SARIF file
+          # Initialize a temporary results file
           jq -c '.runs[0].results[]' cx_result.sarif | while IFS= read -r result; do
             # Extract file path and line numbers
             file=$(echo "$result" | jq -r '.locations[0].physicalLocation.artifactLocation.uri')
             startLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startLine')
+            endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine')
             startColumn=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startColumn')
             endColumn=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endColumn')
 
-            # Debugging: Print file path and line numbers
-            echo "Processing file: $file, startLine: $startLine, startColumn: $startColumn, endColumn: $endColumn"
+            # Adjust the start and end lines to include extra lines above and below
+            startLineAdjusted=$((startLine - 2))
+            endLineAdjusted=$((endLine + 2))
 
             # Ensure the file exists before extracting lines
             if [ -f "$file" ]; then
-              # Extract the specific line
-              line_content=$(sed -n "${startLine}p" "$file")
+              snippet=$(awk "NR>=$startLineAdjusted && NR<=$endLineAdjusted" "$file")
               
-              # Extract the code snippet based on startColumn and endColumn
-              if [ -n "$line_content" ]; then
-                snippet=$(echo "$line_content" | cut -c${startColumn}-${endColumn} | jq -Rs .)
-              else
-                snippet="No content found at line $startLine"
-              fi
-              echo "Extracted snippet: $snippet"
+              # Highlight the specific code based on startColumn and endColumn
+              highlightedSnippet=$(echo "$snippet" | sed -e "${startLineAdjusted}s/^\(.\{$((startColumn - 1))\}\)\(.\{$((endColumn - startColumn + 1))\}\)/\1<<<HIGHLIGHT>>>\2<<<ENDHIGHLIGHT>>>/")
+              
+              # Convert the snippet to a JSON string
+              snippet=$(echo "$highlightedSnippet" | jq -Rs .)
             else
-              # If the file is not found, return a placeholder
-              snippet="File not found or invalid path: $file"
-              echo "File not found: $file"
+              snippet='{"text": "File not found or invalid path"}'
             fi
 
-            # Update the result with the snippet
+            # Update the result with the highlighted snippet
             updated_result=$(echo "$result" | jq --arg snippet "$snippet" '.locations[0].physicalLocation.region.snippet = {"text": $snippet}')
 
-            # Append the updated result to the temporary results file
-            jq --argjson newResult "$updated_result" '. += [$newResult]' tmp_results.json > tmp_results_new.json
-            mv tmp_results_new.json tmp_results.json
+            # Append the updated result to the new SARIF file
+            echo "$updated_result" | jq -c '.' >> tmp_results.json
           done
 
           # Merge updated results back into the SARIF structure
           jq '.runs[0].results = input' cx_result.sarif tmp_results.json > cx_result_with_snippets.sarif
+
+          # Validate the merged SARIF structure
+          jq '.' cx_result_with_snippets.sarif > /dev/null
 
           # Replace the original SARIF file with the updated one
           mv cx_result_with_snippets.sarif cx_result.sarif
