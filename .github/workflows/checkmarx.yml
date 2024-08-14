@@ -31,6 +31,7 @@ jobs:
 
       - name: Validate SARIF structure after scan (debugging step)
         run: |
+          # Validate the SARIF file to ensure it's properly formatted after scanning
           jq '.' cx_result.sarif > /dev/null
 
       - name: Extract and append code snippets to SARIF file
@@ -43,19 +44,22 @@ jobs:
             # Extract file path and line numbers
             file=$(echo "$result" | jq -r '.locations[0].physicalLocation.artifactLocation.uri')
             startLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startLine')
-            endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine')
+            startColumn=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startColumn')
+            endColumn=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endColumn')
 
             # Debugging: Print file path and line numbers
-            echo "Processing file: $file, startLine: $startLine, endLine: $endLine"
+            echo "Processing file: $file, startLine: $startLine, startColumn: $startColumn, endColumn: $endColumn"
 
             # Ensure the file exists before extracting lines
             if [ -f "$file" ]; then
-              # Extract the snippet between startLine and endLine
-              snippet=$(awk "NR>=$startLine && NR<=$endLine" "$file")
-              if [ -z "$snippet" ]; then
-                snippet="No content between lines $startLine and $endLine"
+              # Extract the specific line
+              line_content=$(sed -n "${startLine}p" "$file")
+              
+              # Extract the code snippet based on startColumn and endColumn
+              if [ -n "$line_content" ]; then
+                snippet=$(echo "$line_content" | cut -c${startColumn}-${endColumn} | jq -Rs .)
               else
-                snippet=$(echo "$snippet" | jq -Rs .)
+                snippet="No content found at line $startLine"
               fi
               echo "Extracted snippet: $snippet"
             else
