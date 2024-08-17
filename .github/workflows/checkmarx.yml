@@ -31,8 +31,7 @@ jobs:
 
       - name: Validate SARIF structure after scan (debugging step)
         run: |
-          # Validate the SARIF file to ensure it's properly formatted after scanning
-          jq '.' cx_result.sarif > /dev/null
+          jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format" && exit 1)
 
       - name: Extract and append code snippets to SARIF file
         run: |
@@ -41,7 +40,6 @@ jobs:
 
           # Loop over all results in the SARIF file
           jq -c '.runs[0].results[]' cx_result.sarif | while IFS= read -r result; do
-            # Extract file path and line numbers
             file=$(echo "$result" | jq -r '.locations[0].physicalLocation.artifactLocation.uri')
             startLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startLine')
             endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine')
@@ -64,28 +62,28 @@ jobs:
           jq '.runs[0].results = input' cx_result.sarif tmp_results.json > cx_result_with_snippets.sarif
 
           # Validate the merged SARIF structure
-          jq '.' cx_result_with_snippets.sarif > /dev/null
+          jq '.' cx_result_with_snippets.sarif > /dev/null || (echo "Invalid SARIF format after merging" && exit 1)
 
           # Replace the original SARIF file with the updated one
           mv cx_result_with_snippets.sarif cx_result.sarif
 
       - name: Validate SARIF structure after snippet extraction (debugging step)
         run: |
-          jq '.' cx_result.sarif > /dev/null
+          jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format after snippet extraction" && exit 1)
 
       - name: Fix SARIF file levels
         run: |
           jq 'walk(if type == "object" and has("level") then .level |= (if . == "none" or . == "note" or . == "warning" or . == "error" then . else "note" end) else . end)' cx_result.sarif > tmp.sarif
 
           # Validate the SARIF structure after fixing levels
-          jq '.' tmp.sarif > /dev/null
+          jq '.' tmp.sarif > /dev/null || (echo "Invalid SARIF format after fixing levels" && exit 1)
 
           # Replace the original SARIF file with the updated one
           mv tmp.sarif cx_result.sarif
 
       - name: Validate SARIF structure before metadata append (debugging step)
         run: |
-          jq '.' cx_result.sarif > /dev/null
+          jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format before metadata append" && exit 1)
 
       - name: Append GitHub metadata to SARIF
         env:
@@ -123,14 +121,14 @@ jobs:
               }]' cx_result.sarif > tmp.sarif
 
           # Validate the SARIF structure after appending metadata
-          jq '.' tmp.sarif > /dev/null
+          jq '.' tmp.sarif > /dev/null || (echo "Invalid SARIF format after appending metadata" && exit 1)
 
           # Replace the original SARIF file with the updated one
           mv tmp.sarif cx_result.sarif
 
       - name: Validate SARIF structure before upload (debugging step)
         run: |
-          jq '.' cx_result.sarif > /dev/null
+          jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format before upload" && exit 1)
 
       - name: Upload SARIF file to GitHub
         uses: actions/upload-artifact@v3
@@ -143,12 +141,12 @@ jobs:
         with:
           sarif_file: cx_result.sarif
 
-      # - name: Push report to CSPM panel
-      #   env:
-      #     CSPM_URL: ${{ secrets.CSPM_URL }}
-      #     TENANT_ID: ${{ secrets.TENANT_ID }}
-      #     CSPM_TOKEN: ${{ secrets.CSPM_TOKEN }}
-      #   run: |
-      #     curl --location --request POST "https://${{ env.CSPM_URL }}/api/v1/artifact/?tenant_id=${{ env.TENANT_ID }}&data_type=TR&save_to_s3=false" \
-      #     --header "Authorization: Bearer ${{ env.CSPM_TOKEN }}" \
-      #     --form "file=@./cx_result.sarif"
+      - name: Push report to CSPM panel
+        env:
+          CSPM_URL: ${{ secrets.CSPM_URL }}
+          TENANT_ID: ${{ secrets.TENANT_ID }}
+          CSPM_TOKEN: ${{ secrets.CSPM_TOKEN }}
+        run: |
+          curl --location --request POST "https://${{ env.CSPM_URL }}/api/v1/artifact/?tenant_id=${{ env.TENANT_ID }}&data_type=TR&save_to_s3=false" \
+          --header "Authorization: Bearer ${{ env.CSPM_TOKEN }}" \
+          --form "file=@./cx_result.sarif"
