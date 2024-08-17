@@ -29,9 +29,9 @@ jobs:
           cx_tenant: ${{ secrets.CX_TENANT }}
           additional_params: --report-format sarif --output-path .
 
-      - name: Validate SARIF structure after scan (debugging step)
+      - name: Validate SARIF structure after scan
         run: |
-          jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format" && exit 1)
+          jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format after scan" && exit 1)
 
       - name: Extract and append code snippets to SARIF file
         run: |
@@ -67,7 +67,7 @@ jobs:
           # Replace the original SARIF file with the updated one
           mv cx_result_with_snippets.sarif cx_result.sarif
 
-      - name: Validate SARIF structure after snippet extraction (debugging step)
+      - name: Validate SARIF structure after snippet extraction
         run: |
           jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format after snippet extraction" && exit 1)
 
@@ -81,7 +81,7 @@ jobs:
           # Replace the original SARIF file with the updated one
           mv tmp.sarif cx_result.sarif
 
-      - name: Validate SARIF structure before metadata append (debugging step)
+      - name: Validate SARIF structure before metadata append
         run: |
           jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format before metadata append" && exit 1)
 
@@ -126,7 +126,7 @@ jobs:
           # Replace the original SARIF file with the updated one
           mv tmp.sarif cx_result.sarif
 
-      - name: Validate SARIF structure before upload (debugging step)
+      - name: Validate SARIF structure before upload
         run: |
           jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format before upload" && exit 1)
 
