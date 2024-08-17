@@ -29,44 +29,47 @@ jobs:
           cx_tenant: ${{ secrets.CX_TENANT }}
           additional_params: --report-format sarif --output-path .
 
-      - name: Validate SARIF structure after scan
+      - name: Validate SARIF structure after scan (debugging step)
         run: |
+          # Validate the SARIF file to ensure it's properly formatted after scanning
           jq '.' cx_result.sarif > /dev/null
 
       - name: Extract and append code snippets to SARIF file
         run: |
+          # Initialize a temporary SARIF file
           echo '{"runs":[{"results":[]}]}' > tmp_results.json
 
+          # Loop over all results in the SARIF file
           jq -c '.runs[0].results[]' cx_result.sarif | while IFS= read -r result; do
+            # Extract file path and line numbers
             file=$(echo "$result" | jq -r '.locations[0].physicalLocation.artifactLocation.uri')
             startLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startLine')
             endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine')
-            
-            if [ "$endLine" == "null" ]; then
-              endLine=$startLine
-            fi
 
+            # Extract the code snippet, plus two lines above and below
             if [ -f "$file" ]; then
               snippet=$(awk "NR>=$((startLine-2)) && NR<=$((endLine+2))" "$file" | jq -Rs .)
             else
               snippet='{"text": "File not found or invalid path"}'
             fi
 
-            highlighted=$(awk "NR==$startLine" "$file" | sed 's/^/>>> /')
+            # Update the result with the snippet
+            updated_result=$(echo "$result" | jq --arg snippet "$snippet" '.locations[0].physicalLocation.region.snippet = {"text": $snippet}')
 
-            updated_result=$(echo "$result" | jq --arg snippet "$snippet" --arg highlighted "$highlighted" \
-              '.locations[0].physicalLocation.region.snippet = {"text": $snippet, "highlighted": $highlighted}')
-
-            echo "$updated_result" >> tmp_results.json
+            # Append the updated result to the temporary SARIF file
+            echo "$updated_result" | jq -c '.' >> tmp_results.json
           done
 
+          # Merge updated results back into the SARIF structure
           jq '.runs[0].results = input' cx_result.sarif tmp_results.json > cx_result_with_snippets.sarif
 
+          # Validate the merged SARIF structure
           jq '.' cx_result_with_snippets.sarif > /dev/null
 
+          # Replace the original SARIF file with the updated one
           mv cx_result_with_snippets.sarif cx_result.sarif
 
-      - name: Validate SARIF structure after snippet extraction
+      - name: Validate SARIF structure after snippet extraction (debugging step)
         run: |
           jq '.' cx_result.sarif > /dev/null
 
@@ -74,11 +77,13 @@ jobs:
         run: |
           jq 'walk(if type == "object" and has("level") then .level |= (if . == "none" or . == "note" or . == "warning" or . == "error" then . else "note" end) else . end)' cx_result.sarif > tmp.sarif
 
+          # Validate the SARIF structure after fixing levels
           jq '.' tmp.sarif > /dev/null
 
+          # Replace the original SARIF file with the updated one
           mv tmp.sarif cx_result.sarif
 
-      - name: Validate SARIF structure before metadata append
+      - name: Validate SARIF structure before metadata append (debugging step)
         run: |
           jq '.' cx_result.sarif > /dev/null
 
@@ -117,11 +122,13 @@ jobs:
                 }
               }]' cx_result.sarif > tmp.sarif
 
+          # Validate the SARIF structure after appending metadata
           jq '.' tmp.sarif > /dev/null
 
+          # Replace the original SARIF file with the updated one
           mv tmp.sarif cx_result.sarif
 
-      - name: Validate SARIF structure before upload
+      - name: Validate SARIF structure before upload (debugging step)
         run: |
           jq '.' cx_result.sarif > /dev/null
 
