@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ "master" ]
   schedule:
-    - cron: '18 2 * * 5' # This runs the workflow every Friday at 2:18 AM UTC
+    - cron: '18 2 * * 5'
 
 permissions:
   security-events: write
@@ -31,7 +31,6 @@ jobs:
 
       - name: Validate SARIF structure after scan (debugging step)
         run: |
-          # Validate the SARIF file to ensure it's properly formatted after scanning
           jq '.' cx_result.sarif > /dev/null
 
       - name: Extract and append code snippets to SARIF file
