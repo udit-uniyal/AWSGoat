@@ -135,7 +135,10 @@ jobs:
         with:
           name: sarif-result
           path: cx_result.sarif
-
+      - name: Validate SARIF structure before upload
+        run: |
+          jq '.' cx_result.sarif > /dev/null || (echo "Invalid SARIF format before upload" && exit 1)
+          
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
