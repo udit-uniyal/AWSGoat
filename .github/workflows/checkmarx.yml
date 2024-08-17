@@ -44,7 +44,12 @@ jobs:
             # Extract file path and line numbers
             file=$(echo "$result" | jq -r '.locations[0].physicalLocation.artifactLocation.uri')
             startLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.startLine')
-            endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine // $startLine')
+            endLine=$(echo "$result" | jq -r '.locations[0].physicalLocation.region.endLine')
+            
+            # Set endLine to startLine if endLine is null
+            if [ "$endLine" == "null" ]; then
+              endLine=$startLine
+            fi
 
             # Ensure the file exists before extracting lines
             if [ -f "$file" ]; then
