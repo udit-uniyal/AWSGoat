@@ -7,35 +7,31 @@ on:
   push:
     branches: [ "master" ]
   pull_request:
-    # The branches below must be a subset of the branches above
     branches: [ "master" ]
   schedule:
     - cron: '18 2 * * 5'
+
 permissions:
-  security-events: write  # Add this line to ensure the workflow has permission to upload SARIF files
+  security-events: write
   contents: read
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   build:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # This step checks out a copy of your repository.
       - name: Checkout repository
         uses: actions/checkout@v2
+
       - name: Checkmarx scan
         uses: checkmarx/ast-github-action@main
         with:
           base_uri: https://deu.iam.checkmarx.net/
           cx_client_id: ${{ secrets.CX_CLIENT_ID }}
           cx_client_secret: ${{ secrets.CX_CLIENT_SECRET }}
-          cx_tenant: ${{ secrets.CX_TENANT }} # This should be replaced by users' tenant name
+          cx_tenant: ${{ secrets.CX_TENANT }}
           additional_params: --report-format sarif --output-path .
-     
+
       - name: Fix SARIF file levels
         run: |
           jq 'walk(if type == "object" and has("level") then .level |= (if . == "none" or . == "note" or . == "warning" or . == "error" then . else "note" end) else . end)' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
@@ -65,6 +61,7 @@ jobs:
                   "workflow_run_number": $run_number
                 }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
+
       - name: Upload SARIF file to GitHub
         uses: actions/upload-artifact@v3
         with:
@@ -74,14 +71,11 @@ jobs:
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
-          # Path to SARIF file relative to the root of the repository
           sarif_file: cx_result.sarif
-      - name: Push report to CSPM panel
-        env:
-          CSPM_URL: ${{ secrets.CSPM_URL }}
-          TENANT_ID: ${{ secrets.TENANT_ID }}
-          CSPM_TOKEN: ${{ secrets.CSPM_TOKEN }}
+
+      - name: Push SARIF file to CSPM panel
         run: |
-          curl --location --request POST "https://${{ env.CSPM_URL }}/api/v1/artifact/?tenant_id=${{ env.TENANT_ID }}&data_type=TR&save_to_s3=false" \
-           --header "Authorization: Bearer ${{ env.CSPM_TOKEN }}" \
-           --form "file=@./cx_result.sarif"
+          curl --location '${{ secrets.CSPM_URL }}/api/v1/artifact/?tenant_id=${{ secrets.TENANT_ID }}&data_type=CMX&save_to_s3=true&label_id=${{ secrets.LABEL_ID }}' \
+            --header 'Tenant-Id: ${{ secrets.TENANT_ID }}' \
+            --header 'Authorization: Bearer ${{ secrets.CSPM_TOKEN }}' \
+            --form 'file=@./cx_result.sarif'
