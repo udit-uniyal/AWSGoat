@@ -48,7 +48,6 @@ jobs:
 
       - name: Add code snippets to SARIF
         run: |
-          # Extract code snippets and update SARIF
           jq -r '
             .runs[].results[] | 
             select(.locations[]? != null) | 
@@ -57,7 +56,7 @@ jobs:
             .physicalLocation.region.startLine as $startLine | 
             .physicalLocation.region.endLine as $endLine |
             "\($uri) \($startLine) \($endLine)"
-          ' cx_result.sarif | while read -r uri startLine endLine; do
+          ' cx_result.sarif | while IFS=' ' read -r uri startLine endLine; do
             if [ -f "$uri" ]; then
               snippet=$(sed -n "${startLine},${endLine}p" "$uri" | \
                 awk '{print "{\"line\": " NR ", \"code\": \"" $0 "\"}"}' | \
