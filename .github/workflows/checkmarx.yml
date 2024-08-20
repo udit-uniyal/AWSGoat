@@ -50,25 +50,29 @@ jobs:
 
       - name: Add code snippets to SARIF
         run: |
+          # Ensure the file has a valid JSON format
+          if ! jq empty cx_result.sarif; then
+            echo "SARIF file is not valid JSON, aborting"
+            exit 1
+          fi
+
+          # Extract code snippets and update SARIF
           jq -r '
-            .runs[]? |
-            .results[]? |
-            .locations[]? |
-            .physicalLocation.artifactLocation.uri as $uri |
-            .physicalLocation.region.startLine as $startLine |
+            .runs[].results[] | 
+            .locations[] | 
+            .physicalLocation.artifactLocation.uri as $uri | 
+            .physicalLocation.region.startLine as $startLine | 
             .physicalLocation.region.endLine as $endLine |
             "\($uri) \($startLine) \($endLine)"
           ' cx_result.sarif | while read -r uri startLine endLine; do
-            if [ -f "$uri" ] && [[ $startLine =~ ^[0-9]+$ ]] && [[ $endLine =~ ^[0-9]+$ ]]; then
-              snippet=$(sed -n "${startLine},${endLine}p" "$uri" | \
+            if [ -f "$uri" ]; then
+              snippet=$(sed -n "$startLine,$endLine p" "$uri" | \
                 awk '{print "{\"line\": " NR ", \"code\": \"" $0 "\"}"}' | \
                 jq -s .)
               jq --arg uri "$uri" --argjson snippet "$snippet" '
-                .runs[]? |
-                .results[]? |
-                .locations[]? |
-                select(.physicalLocation.artifactLocation.uri == $uri) |
-                .physicalLocation.snippet = { "lines": $snippet }
+                .runs[].results[] |
+                select(.locations[].physicalLocation.artifactLocation.uri == $uri) |
+                .locations[].physicalLocation.snippet = { "lines": $snippet }
               ' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
             fi
           done
