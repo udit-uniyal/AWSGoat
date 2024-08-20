@@ -29,6 +29,19 @@ jobs:
           cx_tenant: ${{ secrets.CX_TENANT }}
           additional_params: --report-format sarif --output-path .
 
+      - name: Debug SARIF structure
+        run: |
+          jq '.runs[] | {results: .results}' cx_result.sarif
+
+      - name: Validate SARIF file
+        run: |
+          if jq empty cx_result.sarif; then
+            echo "Valid SARIF file"
+          else
+            echo "Invalid SARIF file, aborting"
+            exit 1
+          fi
+
       - name: Fix SARIF file levels
         run: |
           jq 'walk(
@@ -37,11 +50,10 @@ jobs:
             else 
               .
             end
-          )' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
+          )' cx_result.sarif | jq '.runs[]? // {}' > tmp.sarif && mv tmp.sarif cx_result.sarif
 
       - name: Add code snippets to SARIF
         run: |
-          # Extract code snippets and update SARIF
           jq -r '
             .runs[].results[] | 
             .locations[] | 
