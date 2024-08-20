@@ -36,24 +36,14 @@ jobs:
             exit 1
           fi
 
-      - name: Fix SARIF file levels
-        run: |
-          jq 'walk(
-            if type == "object" and has("level") then 
-              .level |= (if . == "none" or . == "note" or . == "warning" or . == "error" then . else "note" end)
-            else 
-              .
-            end
-          )' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
-
       - name: Add code snippets to SARIF
         run: |
           jq -r '
-            .runs[].results[] | 
-            select(.locations[]? != null) | 
-            .locations[] | 
-            .physicalLocation.artifactLocation.uri as $uri | 
-            .physicalLocation.region.startLine as $startLine | 
+            .runs[].results[] |
+            select(.locations[]? != null) |
+            .locations[] |
+            .physicalLocation.artifactLocation.uri as $uri |
+            .physicalLocation.region.startLine as $startLine |
             .physicalLocation.region.endLine as $endLine |
             "\($uri) \($startLine) \($endLine)"
           ' cx_result.sarif | while IFS=' ' read -r uri startLine endLine; do
@@ -69,48 +59,7 @@ jobs:
             fi
           done
 
-      - name: Append GitHub metadata to SARIF
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_REF: ${{ github.ref }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
-          SOURCE: "GitHub"
-        run: |
-          GITHUB_URL="${{ github.server_url }}/${{ github.repository }}"
-          GITHUB_RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          jq --arg repo "$GITHUB_REPOSITORY" \
-             --arg sha "$GITHUB_SHA" \
-             --arg ref "$GITHUB_REF" \
-             --arg run_id "$GITHUB_RUN_ID" \
-             --arg run_number "$GITHUB_RUN_NUMBER" \
-             --arg github_url "$GITHUB_URL" \
-             --arg github_run_url "$GITHUB_RUN_URL" \
-             --arg source "$SOURCE" \
-             '.runs[0].invocations += [{
-                "executionSuccessful": true,
-                "toolExecutionNotifications": [],
-                "toolConfigurationNotifications": [],
-                "properties": {
-                  "repository": $repo,
-                  "commit": $sha,
-                  "ref": $ref,
-                  "workflow_run_id": $run_id,
-                  "workflow_run_number": $run_number,
-                  "repository_url": $github_url,
-                  "workflow_run_url": $github_run_url,
-                  "source": $source
-                }
-              }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
-
       - name: Upload SARIF file to GitHub
-        uses: actions/upload-artifact@v3
-        with:
-          name: sarif-result
-          path: cx_result.sarif
-          
-      - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: cx_result.sarif
