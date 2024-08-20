@@ -49,10 +49,10 @@ jobs:
       - name: Add code snippets to SARIF
         run: |
           jq -r '
-            .runs[].results[] | 
-            .locations[] | 
-            .physicalLocation.artifactLocation.uri as $uri | 
-            .physicalLocation.region.startLine as $startLine | 
+            .runs[].results[] |
+            .locations[]? | 
+            .physicalLocation.artifactLocation.uri as $uri |
+            .physicalLocation.region.startLine as $startLine |
             .physicalLocation.region.endLine as $endLine |
             "\($uri) \($startLine) \($endLine)"
           ' cx_result.sarif | while read -r uri startLine endLine; do
