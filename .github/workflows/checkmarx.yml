@@ -51,20 +51,15 @@ jobs:
             end
           )' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
-      - name: Remove unwanted tool property
-        run: |
-          jq 'del(.runs[].tool)' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
-
-      - name: Inspect SARIF file for tool property
-        run: jq '.runs[].tool' cx_result.sarif || echo "No tool property found"
-
       - name: Add code snippets to SARIF
         run: |
           jq -r '
-            .runs[].results[] | 
-            .locations[] | 
-            .physicalLocation.artifactLocation.uri as $uri | 
-            .physicalLocation.region.startLine as $startLine | 
+            .runs[].results[] |
+            select(.locations[]?.physicalLocation?.artifactLocation?.uri != null) |
+            .locations[] |
+            select(.physicalLocation?.artifactLocation?.uri != null) |
+            .physicalLocation.artifactLocation.uri as $uri |
+            .physicalLocation.region.startLine as $startLine |
             .physicalLocation.region.endLine as $endLine |
             "\($uri) \($startLine) \($endLine)"
           ' cx_result.sarif | while read -r uri startLine endLine; do
