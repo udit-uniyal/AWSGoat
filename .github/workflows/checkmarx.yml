@@ -30,8 +30,7 @@ jobs:
           additional_params: --report-format sarif --output-path .
 
       - name: Debug SARIF structure
-        run: |
-          jq '.runs[] | {results: .results}' cx_result.sarif
+        run: jq '.runs[] | {results: .results}' cx_result.sarif
 
       - name: Validate SARIF file
         run: |
@@ -51,6 +50,13 @@ jobs:
               .
             end
           )' cx_result.sarif | jq '.runs[]? // {}' > tmp.sarif && mv tmp.sarif cx_result.sarif
+
+      - name: Remove unwanted tool property
+        run: |
+          jq 'del(.runs[].tool)' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
+
+      - name: Inspect SARIF file for tool property
+        run: jq '.runs[].tool' cx_result.sarif
 
       - name: Add code snippets to SARIF
         run: |
