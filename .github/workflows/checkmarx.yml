@@ -38,6 +38,9 @@ jobs:
             exit 1
           fi
 
+      - name: Debug SARIF file
+        run: jq '.' cx_result.sarif | head -n 20
+
       - name: Fix SARIF file levels
         run: |
           jq 'walk(
@@ -53,7 +56,7 @@ jobs:
           jq 'del(.runs[].tool)' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
       - name: Inspect SARIF file for tool property
-        run: jq '.runs[].tool' cx_result.sarif
+        run: jq '.runs[].tool' cx_result.sarif || echo "No tool property found"
 
       - name: Add code snippets to SARIF
         run: |
