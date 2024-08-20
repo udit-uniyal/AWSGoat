@@ -29,39 +29,60 @@ jobs:
           cx_tenant: ${{ secrets.CX_TENANT }}
           additional_params: --report-format sarif --output-path .
 
-      - name: Validate SARIF file
+      - name: Fix SARIF file levels
         run: |
-          if ! jq '.' cx_result.sarif > /dev/null; then
-            echo "SARIF file is invalid JSON."
-            exit 1
-          fi
+          jq 'walk(if type == "object" and has("level") then .level |= (if . == "none" or . == "note" or . == "warning" or . == "error" then . else "note" end) else . end)' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
-      - name: Add code snippets to SARIF
+      - name: Append GitHub metadata to SARIF
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: |
-          jq -r '
-            .runs[].results[] |
-            select(.locations[]? != null) |
-            .locations[] |
-            .physicalLocation.artifactLocation.uri as $uri |
-            .physicalLocation.region.startLine as $startLine |
-            .physicalLocation.region.endLine as $endLine |
-            "\($uri) \($startLine) \($endLine)"
-          ' cx_result.sarif | while IFS=' ' read -r uri startLine endLine; do
-            if [ -f "$uri" ]; then
-              snippet=$(sed -n "${startLine},${endLine}p" "$uri" | \
-                awk '{print "{\"line\": " NR ", \"code\": \"" $0 "\"}"}' | \
-                jq -s .)
-              jq --arg uri "$uri" --argjson snippet "$snippet" '
-                .runs[].results[] |
-                select(.locations[].physicalLocation.artifactLocation.uri == $uri) |
-                .locations[].physicalLocation.snippet = { "lines": $snippet }
-              ' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
-            else
-              echo "File $uri not found."
+          jq --arg repo "$GITHUB_REPOSITORY" \
+             --arg sha "$GITHUB_SHA" \
+             --arg ref "$GITHUB_REF" \
+             --arg run_id "$GITHUB_RUN_ID" \
+             --arg run_number "$GITHUB_RUN_NUMBER" \
+             '.runs[0].invocations += [{
+                "executionSuccessful": true,
+                "toolExecutionNotifications": [],
+                "toolConfigurationNotifications": [],
+                "properties": {
+                  "repository": $repo,
+                  "commit": $sha,
+                  "ref": $ref,
+                  "workflow_run_id": $run_id,
+                  "workflow_run_number": $run_number
+                }
+              }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
+
+      - name: Extract code snippets based on physical location
+        id: extract_snippets
+        run: |
+          # Create a directory for extracted snippets
+          mkdir -p snippets
+          
+          # Extract locations from SARIF and get the corresponding code snippets
+          jq -r '.runs[0].results[] | .locations[] | select(.physicalLocation.artifactLocation.uri != null) | "\(.physicalLocation.artifactLocation.uri) \(.physicalLocation.region.startLine) \(.physicalLocation.region.startColumn) \(.physicalLocation.region.endColumn)"' cx_result.sarif | while read -r uri start_line start_col end_col; do
+            file_path=$(echo "$uri" | sed 's#^#./#')
+            if [ -f "$file_path" ]; then
+              snippet=$(sed -n "${start_line},${end_col}p" "$file_path" | sed -n "${start_col},${end_col}p")
+              echo -e "File: $file_path\nLine: $start_line\nColumn: $start_col\nSnippet:\n$snippet\n" >> snippets/code_snippets.txt
             fi
           done
 
-      - name: Upload SARIF file to GitHub
+      - name: Upload SARIF file and code snippets
+        uses: actions/upload-artifact@v3
+        with:
+          name: sarif-results
+          path: |
+            cx_result.sarif
+            snippets/code_snippets.txt
+
+      - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: cx_result.sarif
