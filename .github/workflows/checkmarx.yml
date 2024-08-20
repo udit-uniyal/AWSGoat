@@ -64,7 +64,7 @@ jobs:
             "\($uri) \($startLine) \($endLine)"
           ' cx_result.sarif | while read -r uri startLine endLine; do
             if [ -f "$uri" ]; then
-              snippet=$(sed -n "$startLine,$endLine p" "$uri" | \
+              snippet=$(sed -n "${startLine},${endLine}p" "$uri" | \
                 awk '{print "{\"line\": " NR ", \"code\": \"" $0 "\"}"}' | \
                 jq -s .)
               jq --arg uri "$uri" --argjson snippet "$snippet" '
