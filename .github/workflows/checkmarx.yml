@@ -2,9 +2,9 @@ name: Checkmarx Sarif Integration
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
   schedule:
     - cron: '18 2 * * 5'
 
@@ -29,9 +29,6 @@ jobs:
           cx_tenant: ${{ secrets.CX_TENANT }}
           additional_params: --report-format sarif --output-path .
 
-      - name: Debug SARIF structure
-        run: jq '.runs[] | {results: .results}' cx_result.sarif
-
       - name: Validate SARIF file
         run: |
           if jq empty cx_result.sarif; then
@@ -49,7 +46,7 @@ jobs:
             else 
               .
             end
-          )' cx_result.sarif | jq '.runs[]? // {}' > tmp.sarif && mv tmp.sarif cx_result.sarif
+          )' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
       - name: Remove unwanted tool property
         run: |
