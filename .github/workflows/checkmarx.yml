@@ -56,6 +56,8 @@ jobs:
                 select(.locations[].physicalLocation.artifactLocation.uri == $uri) |
                 .locations[].physicalLocation.snippet = { "lines": $snippet }
               ' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
+            else
+              echo "File $uri not found."
             fi
           done
 
