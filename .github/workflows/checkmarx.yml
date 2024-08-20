@@ -66,22 +66,22 @@ jobs:
           cp cx_result.sarif tmp_sarif_with_snippets.sarif
           
           # Extract locations and snippets
-          jq -r '.runs[0].results[] | .locations[] | select(.physicalLocation.artifactLocation.uri != null) | "\(.physicalLocation.artifactLocation.uri) \(.physicalLocation.region.startLine) \(.physicalLocation.region.startColumn) \(.physicalLocation.region.endColumn)"' cx_result.sarif | while read -r uri start_line start_col end_col; do
+          jq -r '.runs[0].results[] | .locations[]? | select(.physicalLocation.artifactLocation.uri != null) | "\(.physicalLocation.artifactLocation.uri) \(.physicalLocation.region.startLine) \(.physicalLocation.region.startColumn) \(.physicalLocation.region.endColumn)"' cx_result.sarif | while read -r uri start_line start_col end_col; do
             # Remove leading ./ for correct path handling
             file_path=$(echo "$uri" | sed 's#^#./#')
             
             # Check if file exists
             if [ -f "$file_path" ]; then
-              # Extract the code snippet
+              # Extract the code snippet considering the column start and end
               snippet=$(sed -n "${start_line}p" "$file_path" | cut -c "$start_col"-"$end_col")
               
-              # Append snippet to SARIF results
+              # Embed snippet into SARIF
               jq --arg uri "$uri" \
                  --arg start_line "$start_line" \
                  --arg start_col "$start_col" \
                  --arg end_col "$end_col" \
                  --arg snippet "$snippet" \
-                 '.runs[0].results[] | select(.locations[].physicalLocation.artifactLocation.uri == $uri) | .locations[].physicalLocation.codeSnippet = { "text": $snippet, "language": "plaintext" }' \
+                 '(.runs[0].results[] | select(.locations[]?.physicalLocation.artifactLocation.uri == $uri) | .locations[].physicalLocation.snippet) |= { "text": $snippet, "language": "plaintext" }' \
                  tmp_sarif_with_snippets.sarif > tmp_sarif_with_snippets_updated.sarif && mv tmp_sarif_with_snippets_updated.sarif tmp_sarif_with_snippets.sarif
             else
               echo "File not found: $file_path" >> tmp_sarif_with_snippets.sarif
