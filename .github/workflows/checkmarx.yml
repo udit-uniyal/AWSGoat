@@ -38,9 +38,6 @@ jobs:
             exit 1
           fi
 
-      - name: Debug SARIF file
-        run: jq '.' cx_result.sarif | head -n 20
-
       - name: Fix SARIF file levels
         run: |
           jq 'walk(
@@ -54,7 +51,7 @@ jobs:
       - name: Add code snippets to SARIF
         run: |
           jq -r '
-            .runs[]? | 
+            .runs[]? |
             .results[]? |
             .locations[]? |
             .physicalLocation.artifactLocation.uri as $uri |
