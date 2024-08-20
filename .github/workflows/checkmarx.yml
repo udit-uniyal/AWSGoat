@@ -29,10 +29,12 @@ jobs:
           cx_tenant: ${{ secrets.CX_TENANT }}
           additional_params: --report-format sarif --output-path .
 
-      - name: Validate SARIF JSON
+      - name: Validate SARIF file
         run: |
-          cat cx_result.sarif | jq . > /dev/null
-        continue-on-error: true
+          if ! jq . cx_result.sarif > /dev/null; then
+            echo "SARIF file is invalid JSON."
+            exit 1
+          fi
 
       - name: Fix SARIF file levels
         run: |
@@ -55,7 +57,7 @@ jobs:
             "\($uri) \($startLine) \($endLine)"
           ' cx_result.sarif | while read -r uri startLine endLine; do
             if [ -f "$uri" ]; then
-              snippet=$(sed -n "$startLine,$EndLine p" "$uri" | \
+              snippet=$(sed -n "${startLine},${endLine}p" "$uri" | \
                 awk '{print "{\"line\": " NR ", \"code\": \"" $0 "\"}"}' | \
                 jq -s .)
               jq --arg uri "$uri" --argjson snippet "$snippet" '
