@@ -31,7 +31,7 @@ jobs:
 
       - name: Validate SARIF file
         run: |
-          if ! jq . cx_result.sarif > /dev/null; then
+          if ! jq '.' cx_result.sarif > /dev/null; then
             echo "SARIF file is invalid JSON."
             exit 1
           fi
