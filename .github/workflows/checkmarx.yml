@@ -59,37 +59,49 @@ jobs:
                 }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
-      - name: Extract code snippets based on physical location
-        id: extract_snippets
+      - name: Extract and Embed Code Snippets in SARIF
+        id: embed_snippets
         run: |
-          # Create a directory for extracted snippets
-          mkdir -p snippets
+          # Create a temporary SARIF file with embedded snippets
+          cp cx_result.sarif tmp_sarif_with_snippets.sarif
           
-          # Extract locations from SARIF and get the corresponding code snippets
+          # Extract locations and snippets
           jq -r '.runs[0].results[] | .locations[] | select(.physicalLocation.artifactLocation.uri != null) | "\(.physicalLocation.artifactLocation.uri) \(.physicalLocation.region.startLine) \(.physicalLocation.region.startColumn) \(.physicalLocation.region.endColumn)"' cx_result.sarif | while read -r uri start_line start_col end_col; do
+            # Remove leading ./ for correct path handling
             file_path=$(echo "$uri" | sed 's#^#./#')
+            
+            # Check if file exists
             if [ -f "$file_path" ]; then
-              snippet=$(sed -n "${start_line},${end_col}p" "$file_path" | sed -n "${start_col},${end_col}p")
-              echo -e "File: $file_path\nLine: $start_line\nColumn: $start_col\nSnippet:\n$snippet\n" >> snippets/code_snippets.txt
+              # Extract the code snippet
+              snippet=$(sed -n "${start_line}p" "$file_path" | cut -c "$start_col"-"$end_col")
+              
+              # Append snippet to SARIF results
+              jq --arg uri "$uri" \
+                 --arg start_line "$start_line" \
+                 --arg start_col "$start_col" \
+                 --arg end_col "$end_col" \
+                 --arg snippet "$snippet" \
+                 '.runs[0].results[] | select(.locations[].physicalLocation.artifactLocation.uri == $uri) | .locations[].physicalLocation.codeSnippet = { "text": $snippet, "language": "plaintext" }' \
+                 tmp_sarif_with_snippets.sarif > tmp_sarif_with_snippets_updated.sarif && mv tmp_sarif_with_snippets_updated.sarif tmp_sarif_with_snippets.sarif
+            else
+              echo "File not found: $file_path" >> tmp_sarif_with_snippets.sarif
             fi
           done
 
-      - name: Upload SARIF file and code snippets
+      - name: Upload SARIF file with code snippets
         uses: actions/upload-artifact@v3
         with:
-          name: sarif-results
-          path: |
-            cx_result.sarif
-            snippets/code_snippets.txt
+          name: sarif-results-with-snippets
+          path: tmp_sarif_with_snippets.sarif
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: cx_result.sarif
+          sarif_file: tmp_sarif_with_snippets.sarif
 
       - name: Push SARIF file to CSPM panel
         run: |
           curl --location '${{ secrets.CSPM_URL }}/api/v1/artifact/?tenant_id=${{ secrets.TENANT_ID }}&data_type=CMX&save_to_s3=true&label_id=${{ secrets.LABEL_ID }}' \
             --header 'Tenant-Id: ${{ secrets.TENANT_ID }}' \
             --header 'Authorization: Bearer ${{ secrets.CSPM_TOKEN }}' \
-            --form 'file=@./cx_result.sarif'
+            --form 'file=@./tmp_sarif_with_snippets.sarif'
