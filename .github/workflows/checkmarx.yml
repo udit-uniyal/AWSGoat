@@ -46,6 +46,7 @@ jobs:
              --arg ref "$GITHUB_REF" \
              --arg run_id "$GITHUB_RUN_ID" \
              --arg run_number "$GITHUB_RUN_NUMBER" \
+             --arg source "GitHub" \
              '.runs[0].invocations += [{
                 "executionSuccessful": true,
                 "toolExecutionNotifications": [],
@@ -56,14 +57,9 @@ jobs:
                   "ref": $ref,
                   "workflow_run_id": $run_id,
                   "workflow_run_number": $run_number,
-                  "source": "GitHub"
+                  "source": $source
                 }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
-
-      - name: Install Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.x'
 
       - name: Extract and Embed Code Snippets in SARIF using Python
         id: embed_snippets
@@ -77,22 +73,22 @@ jobs:
               snippet_lines = lines[max(start_line - 3, 0):min(start_line + 2, len(lines))]
               
               # Extract the specific snippet and highlight it
-              highlighted_snippet = snippet_lines[:]
-              if start_line - 1 < len(lines):
-                  original_line = lines[start_line - 1]
-                  highlighted_snippet[start_line - max(start_line - 3, 0) - 1] = (
-                      original_line[:start_column - 1] +
-                      "<<<HIGHLIGHT>>>" +
-                      original_line[start_column - 1:end_column] +
-                      "<<<END_HIGHLIGHT>>>" +
-                      original_line[end_column:]
-                  )
-              
-              # Add comments for snippet boundaries
-              snippet_with_comments = ""
-              snippet_with_comments += "// Start of snippet\n"
+              highlighted_snippet = []
               for i, line in enumerate(snippet_lines):
-                  snippet_with_comments += line
+                  if i == start_line - max(start_line - 3, 0):
+                      highlighted_snippet.append(
+                          line[:start_column - 1] +
+                          "<<<HIGHLIGHT>>>" +
+                          line[start_column - 1:end_column] +
+                          "<<<END_HIGHLIGHT>>>" +
+                          line[end_column:]
+                      )
+                  else:
+                      highlighted_snippet.append(line)
+
+              # Add comments for snippet boundaries
+              snippet_with_comments = "// Start of snippet\n"
+              snippet_with_comments += "".join(highlighted_snippet)
               snippet_with_comments += "// End of snippet\n"
               
               return snippet_with_comments
