@@ -96,7 +96,7 @@ jobs:
                   if i == len(snippet_lines) - 1:
                       snippet_with_comments += "// End of snippet\n"
               
-              return "".join(snippet_lines), "".join(snippet_with_comments)
+              return "".join(snippet_lines), snippet_with_comments
 
           with open("cx_result.sarif", "r") as sarif_file:
               sarif_data = json.load(sarif_file)
