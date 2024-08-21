@@ -56,7 +56,7 @@ jobs:
                   "ref": $ref,
                   "workflow_run_id": $run_id,
                   "workflow_run_number": $run_number,
-                  "source": "GitHub"  # Added source details
+                  "source": "GitHub"
                 }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
@@ -82,22 +82,20 @@ jobs:
                   original_line = lines[start_line - 1]
                   highlighted_snippet[start_line - max(start_line - 3, 0) - 1] = (
                       original_line[:start_column - 1] +
-                      "<<HIGHLIGHT>>" +
+                      "<<<HIGHLIGHT>>>" +
                       original_line[start_column - 1:end_column] +
-                      "<</HIGHLIGHT>>" +
+                      "<<<END_HIGHLIGHT>>>" +
                       original_line[end_column:]
                   )
               
               # Add comments for snippet boundaries
               snippet_with_comments = ""
+              snippet_with_comments += "// Start of snippet\n"
               for i, line in enumerate(snippet_lines):
-                  if i == 0:
-                      snippet_with_comments += "// Start of snippet\n"
                   snippet_with_comments += line
-                  if i == len(snippet_lines) - 1:
-                      snippet_with_comments += "// End of snippet\n"
+              snippet_with_comments += "// End of snippet\n"
               
-              return "".join(snippet_lines), snippet_with_comments
+              return snippet_with_comments
 
           with open("cx_result.sarif", "r") as sarif_file:
               sarif_data = json.load(sarif_file)
@@ -121,7 +119,7 @@ jobs:
                           try:
                               with open(file_path, "r") as source_file:
                                   lines = source_file.readlines()
-                                  snippet, snippet_with_comments = get_code_snippet(
+                                  snippet_with_comments = get_code_snippet(
                                       lines, start_line, start_column, end_column
                                   )
                                   region["snippet"] = {
