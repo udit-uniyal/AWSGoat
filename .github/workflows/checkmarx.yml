@@ -87,10 +87,13 @@ jobs:
               # Extract the specific snippet and highlight it
               highlighted_snippet = snippet_lines[:]
               if start_line - 1 < len(lines):
+                  original_line = lines[start_line - 1]
                   highlighted_snippet[start_line - max(start_line - 3, 0) - 1] = (
-                      lines[start_line - 1][:start_column - 1] +
-                      lines[start_line - 1][start_column - 1:end_column] +
-                      lines[start_line - 1][end_column:]
+                      original_line[:start_column - 1] +
+                      "<<HIGHLIGHT>>" +
+                      original_line[start_column - 1:end_column] +
+                      "<</HIGHLIGHT>>" +
+                      original_line[end_column:]
                   )
               
               return "".join(snippet_lines), "".join(highlighted_snippet)
