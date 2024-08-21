@@ -85,7 +85,15 @@ jobs:
               snippet_with_comments = "// Start of snippet\n"
               snippet_with_comments += "".join(highlighted_snippet)
               snippet_with_comments += "// End of snippet\n"
-              return snippet_with_comments
+              exact_line = lines[start_line - 1]
+              highlighted_exact_line = (
+                  exact_line[:start_column - 1] +
+                  "<<<HIGHLIGHT>>>" +
+                  exact_line[start_column - 1:end_column] +
+                  "<<<END_HIGHLIGHT>>>" +
+                  exact_line[end_column:]
+              )
+              return snippet_with_comments, highlighted_exact_line
 
           with open("cx_result.sarif", "r") as sarif_file:
               sarif_data = json.load(sarif_file)
@@ -107,11 +115,12 @@ jobs:
                           try:
                               with open(file_path, "r") as source_file:
                                   lines = source_file.readlines()
-                                  snippet_with_comments = get_code_snippet(
+                                  snippet_with_comments, exact_line = get_code_snippet(
                                       lines, start_line, start_column, end_column
                                   )
                                   region["snippet"] = {
-                                      "text": snippet_with_comments
+                                      "text": snippet_with_comments,
+                                      "text2": exact_line
                                   }
                           except FileNotFoundError:
                               print(f"Failed to process file {file_path}: File not found.")
