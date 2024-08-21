@@ -68,6 +68,7 @@ jobs:
         id: embed_snippets
         run: |
           python3 <<EOF
+          import os
           import json
 
           with open("cx_result.sarif", "r") as sarif_file:
@@ -86,16 +87,21 @@ jobs:
                       end_column = region.get("endColumn")
 
                       if uri and start_line and start_column and end_column:
+                          # Ensure the file path is correctly handled
+                          file_path = os.path.join(".", uri.lstrip("./"))
+                          
                           try:
-                              with open(uri.lstrip("./"), "r") as source_file:
+                              with open(file_path, "r") as source_file:
                                   lines = source_file.readlines()
                                   snippet = lines[start_line - 1][start_column - 1:end_column]
                                   region["snippet"] = {
                                       "text": snippet,
                                       "language": "plaintext"
                                   }
+                          except FileNotFoundError:
+                              print(f"Failed to process file {file_path}: File not found.")
                           except Exception as e:
-                              print(f"Failed to process file {uri}: {e}")
+                              print(f"Failed to process file {file_path}: {e}")
 
           with open("tmp_sarif_with_snippets.sarif", "w") as output_file:
               json.dump(sarif_data, output_file, indent=2)
