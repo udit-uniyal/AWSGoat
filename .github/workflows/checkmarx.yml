@@ -55,7 +55,8 @@ jobs:
                   "commit": $sha,
                   "ref": $ref,
                   "workflow_run_id": $run_id,
-                  "workflow_run_number": $run_number
+                  "workflow_run_number": $run_number,
+                  "source": "GitHub"  # Added source details
                 }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
