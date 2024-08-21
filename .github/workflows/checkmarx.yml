@@ -81,7 +81,7 @@ jobs:
                  --arg start_col "$start_col" \
                  --arg end_col "$end_col" \
                  --arg snippet "$snippet" \
-                 '(.runs[0].results[] | select(.locations[]?.physicalLocation.artifactLocation.uri == $uri) | .locations[].physicalLocation.snippet) |= { "text": $snippet, "language": "plaintext" }' \
+                 '(.runs[0].results[] | select(.locations[]?.physicalLocation.artifactLocation.uri == $uri) | .locations[].physicalLocation.region.contextRegion) |= { "startLine": $start_line, "snippet": { "text": $snippet, "language": "plaintext" }}' \
                  tmp_sarif_with_snippets.sarif > tmp_sarif_with_snippets_updated.sarif && mv tmp_sarif_with_snippets_updated.sarif tmp_sarif_with_snippets.sarif
             else
               echo "File not found: $file_path" >> tmp_sarif_with_snippets.sarif
