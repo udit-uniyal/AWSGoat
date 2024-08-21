@@ -95,8 +95,7 @@ jobs:
                                   lines = source_file.readlines()
                                   snippet = lines[start_line - 1][start_column - 1:end_column]
                                   region["snippet"] = {
-                                      "text": snippet,
-                                      "language": "plaintext"
+                                      "text": snippet
                                   }
                           except FileNotFoundError:
                               print(f"Failed to process file {file_path}: File not found.")
