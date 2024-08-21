@@ -40,12 +40,18 @@ jobs:
           GITHUB_REF: ${{ github.ref }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          SOURCE: "GitHub"
         run: |
+          GITHUB_URL="${{ github.server_url }}/${{ github.repository }}"
+          GITHUB_RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           jq --arg repo "$GITHUB_REPOSITORY" \
              --arg sha "$GITHUB_SHA" \
              --arg ref "$GITHUB_REF" \
              --arg run_id "$GITHUB_RUN_ID" \
              --arg run_number "$GITHUB_RUN_NUMBER" \
+             --arg github_url "$GITHUB_URL" \
+             --arg github_run_url "$GITHUB_RUN_URL" \
+             --arg source "$SOURCE" \
              '.runs[0].invocations += [{
                 "executionSuccessful": true,
                 "toolExecutionNotifications": [],
@@ -55,7 +61,10 @@ jobs:
                   "commit": $sha,
                   "ref": $ref,
                   "workflow_run_id": $run_id,
-                  "workflow_run_number": $run_number
+                  "workflow_run_number": $run_number,
+                  "repository_url": $github_url,
+                  "workflow_run_url": $github_run_url,
+                  "source": $source
                 }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
@@ -70,6 +79,21 @@ jobs:
           python3 <<EOF
           import os
           import json
+
+          def get_code_snippet(lines, start_line, start_column, end_column):
+              # Adjust indices since line numbers in files are 1-based
+              snippet_lines = lines[max(start_line - 3, 0):min(start_line + 2, len(lines))]
+              
+              # Extract the specific snippet and highlight it
+              highlighted_snippet = snippet_lines[:]
+              if start_line - 1 < len(lines):
+                  highlighted_snippet[start_line - max(start_line - 3, 0) - 1] = (
+                      lines[start_line - 1][:start_column - 1] +
+                      lines[start_line - 1][start_column - 1:end_column] +
+                      lines[start_line - 1][end_column:]
+                  )
+              
+              return "".join(snippet_lines), "".join(highlighted_snippet)
 
           with open("cx_result.sarif", "r") as sarif_file:
               sarif_data = json.load(sarif_file)
@@ -93,9 +117,11 @@ jobs:
                           try:
                               with open(file_path, "r") as source_file:
                                   lines = source_file.readlines()
-                                  snippet = lines[start_line - 1][start_column - 1:end_column]
+                                  snippet, highlighted_snippet = get_code_snippet(
+                                      lines, start_line, start_column, end_column
+                                  )
                                   region["snippet"] = {
-                                      "text": snippet
+                                      "text": highlighted_snippet
                                   }
                           except FileNotFoundError:
                               print(f"Failed to process file {file_path}: File not found.")
