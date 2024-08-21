@@ -59,33 +59,47 @@ jobs:
                 }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
-      - name: Extract and Embed Code Snippets in SARIF
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Extract and Embed Code Snippets in SARIF using Python
         id: embed_snippets
         run: |
-          # Create a temporary SARIF file with embedded snippets
-          cp cx_result.sarif tmp_sarif_with_snippets.sarif
-          
-          # Extract locations and snippets
-          jq -r '.runs[0].results[] | .locations[]? | select(.physicalLocation.artifactLocation.uri != null) | "\(.physicalLocation.artifactLocation.uri) \(.physicalLocation.region.startLine) \(.physicalLocation.region.startColumn) \(.physicalLocation.region.endColumn)"' cx_result.sarif | while read -r uri start_line start_col end_col; do
-            # Remove leading ./ for correct path handling
-            file_path=$(echo "$uri" | sed 's#^#./#')
-            
-            # Check if file exists
-            if [ -f "$file_path" ]; then
-              # Extract the code snippet considering the column start and end
-              snippet=$(sed -n "${start_line}p" "$file_path" | cut -c "$start_col"-"$end_col")
-              
-              # Embed snippet into SARIF
-              jq --arg uri "$uri" \
-                 --arg start_line "$start_line" \
-                 --arg start_col "$start_col" \
-                 --arg snippet "$snippet" \
-                 '(.runs[0].results[] | select(.locations[]?.physicalLocation.artifactLocation.uri == $uri) | .locations[].physicalLocation.region.snippet) |= { "text": $snippet, "language": "plaintext" }' \
-                 tmp_sarif_with_snippets.sarif > tmp_sarif_with_snippets_updated.sarif && mv tmp_sarif_with_snippets_updated.sarif tmp_sarif_with_snippets.sarif
-            else
-              echo "File not found: $file_path" >> tmp_sarif_with_snippets.sarif
-            fi
-          done
+          python3 <<EOF
+          import json
+
+          with open("cx_result.sarif", "r") as sarif_file:
+              sarif_data = json.load(sarif_file)
+
+          for run in sarif_data.get("runs", []):
+              for result in run.get("results", []):
+                  for location in result.get("locations", []):
+                      physical_location = location.get("physicalLocation", {})
+                      artifact_location = physical_location.get("artifactLocation", {})
+                      region = physical_location.get("region", {})
+
+                      uri = artifact_location.get("uri")
+                      start_line = region.get("startLine")
+                      start_column = region.get("startColumn")
+                      end_column = region.get("endColumn")
+
+                      if uri and start_line and start_column and end_column:
+                          try:
+                              with open(uri.lstrip("./"), "r") as source_file:
+                                  lines = source_file.readlines()
+                                  snippet = lines[start_line - 1][start_column - 1:end_column]
+                                  region["snippet"] = {
+                                      "text": snippet,
+                                      "language": "plaintext"
+                                  }
+                          except Exception as e:
+                              print(f"Failed to process file {uri}: {e}")
+
+          with open("tmp_sarif_with_snippets.sarif", "w") as output_file:
+              json.dump(sarif_data, output_file, indent=2)
+          EOF
 
       - name: Upload SARIF file with code snippets
         uses: actions/upload-artifact@v3
