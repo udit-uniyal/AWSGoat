@@ -65,7 +65,6 @@ jobs:
                   "repository_url": $github_url,
                   "workflow_run_url": $github_run_url,
                   "source": $source
-                }
               }]' cx_result.sarif > tmp.sarif && mv tmp.sarif cx_result.sarif
 
       - name: Install Python
@@ -96,7 +95,16 @@ jobs:
                       original_line[end_column:]
                   )
               
-              return "".join(snippet_lines), "".join(highlighted_snippet)
+              # Add comments for snippet boundaries
+              snippet_with_comments = ""
+              for i, line in enumerate(snippet_lines):
+                  if i == 0:
+                      snippet_with_comments += "// Start of snippet\n"
+                  snippet_with_comments += line
+                  if i == len(snippet_lines) - 1:
+                      snippet_with_comments += "// End of snippet\n"
+              
+              return "".join(snippet_lines), "".join(snippet_with_comments)
 
           with open("cx_result.sarif", "r") as sarif_file:
               sarif_data = json.load(sarif_file)
@@ -120,11 +128,11 @@ jobs:
                           try:
                               with open(file_path, "r") as source_file:
                                   lines = source_file.readlines()
-                                  snippet, highlighted_snippet = get_code_snippet(
+                                  snippet, snippet_with_comments = get_code_snippet(
                                       lines, start_line, start_column, end_column
                                   )
                                   region["snippet"] = {
-                                      "text": highlighted_snippet
+                                      "text": snippet_with_comments
                                   }
                           except FileNotFoundError:
                               print(f"Failed to process file {file_path}: File not found.")
@@ -134,7 +142,7 @@ jobs:
           with open("tmp_sarif_with_snippets.sarif", "w") as output_file:
               json.dump(sarif_data, output_file, indent=2)
           EOF
-          
+
       - name: Upload SARIF file with code snippets
         uses: actions/upload-artifact@v3
         with:
