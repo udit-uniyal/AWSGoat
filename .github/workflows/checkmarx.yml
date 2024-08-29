@@ -163,5 +163,5 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: checkmarx-sarif-report
-          path: path/to/generated/cx_result.json
+          path: cx_result.json
      
