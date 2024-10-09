@@ -359,7 +359,7 @@ resource "aws_launch_template" "ecs_launch_template" {
 
   security_group_names = [aws_security_group.ecs_sg.name]
 
-  user_data = data.template_file.user_data.rendered
+  user_data = base64encode(data.template_file.user_data.rendered)
 }
 
 resource "aws_autoscaling_group" "ecs_asg" {
