@@ -21,6 +21,7 @@ The project will be divided into modules and each module will be a separate web 
 - [BlackHat USA 2022](https://www.blackhat.com/us-22/arsenal/schedule/index.html#awsgoat--a-damn-vulnerable-aws-infrastructure-27999)
 - [DC 30: Demo Labs](https://forum.defcon.org/node/242059)
 - [Rootcon 16](https://rootcon.org/)
+- [BlackHat ASIA 2023](https://www.blackhat.com/asia-23/arsenal/schedule/#awsgoat--a-damn-vulnerable-aws-infrastructure-31311)
 
 ### Developed with :heart: by [INE](https://ine.com/) 
 
@@ -55,6 +56,7 @@ Currently, the project  contains the following vulnerabilities/misconfigurations
 ### Prerequisites
 * An AWS Account
 * AWS Access Key with Administrative Privileges
+* OR use the IAM policy in the [policy.json](policy/policy.json) file for the minimum permissions required for an AWS Access Key.
 
 
 ### Installation
@@ -156,9 +158,9 @@ Sanjeev Mahunta, Software Engineer (Cloud), INE <smahunta@ine.com>
 
 Shantanu Kale, Cloud Developer, INE  <skale@ine.com>
 
-Govind Krishna Lal Balaji, Cloud Developer Intern, INE <lkris@ine.com> 
+Govind Krishna Lal Balaji, Cloud Developer, INE <lkris@ine.com> 
 
-Litesh Ghute, Software Engineer (Cloud) Intern, INE <lghute@ine.com> 
+Litesh Ghute, Software Engineer, INE <lghute@ine.com> 
 
 # Solutions
 

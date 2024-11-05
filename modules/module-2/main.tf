@@ -131,7 +131,7 @@ resource "aws_security_group" "database-security-group" {
 resource "aws_db_instance" "database-instance" {
   identifier             = "aws-goat-db"
   allocated_storage      = 10
-  instance_class         = "db.t2.micro"
+  instance_class         = "db.t3.micro"
   engine                 = "mysql"
   engine_version         = "5.7"
   username               = "root"
@@ -348,21 +348,33 @@ data "aws_ami" "ecs_optimized_ami" {
 
 
 
-resource "aws_launch_configuration" "ecs_launch_config" {
-  image_id             = data.aws_ami.ecs_optimized_ami.id
-  iam_instance_profile = aws_iam_instance_profile.ecs-instance-profile.name
-  security_groups      = [aws_security_group.ecs_sg.id]
-  user_data            = data.template_file.user_data.rendered
-  instance_type        = "t2.micro"
+resource "aws_launch_template" "ecs_launch_template" {
+  name_prefix   = "ecs-launch-template-"
+  image_id      = data.aws_ami.ecs_optimized_ami.id
+  instance_type = "t2.micro"
+  
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ecs-instance-profile.name
+  }
+
+  security_group_names = [aws_security_group.ecs_sg.name]
+
+  user_data = base64encode(data.template_file.user_data.rendered)
 }
+
 resource "aws_autoscaling_group" "ecs_asg" {
   name                 = "ECS-lab-asg"
   vpc_zone_identifier  = [aws_subnet.lab-subnet-public-1.id]
-  launch_configuration = aws_launch_configuration.ecs_launch_config.name
+  launch_template {
+    id      = aws_launch_template.ecs_launch_template.id
+    version = "$Latest"
+  }
+  
   desired_capacity     = 1
   min_size             = 0
   max_size             = 1
 }
+
 
 resource "aws_ecs_cluster" "cluster" {
   name = "ecs-lab-cluster"
@@ -377,8 +389,8 @@ data "template_file" "user_data" {
 }
 
 resource "aws_ecs_task_definition" "task_definition" {
-  container_definitions = data.template_file.task_definition_json.rendered
-  family                = "ECS-Lab-Task-definition"
+  container_definitions    = data.template_file.task_definition_json.rendered
+  family                   = "ECS-Lab-Task-definition"
   network_mode             = "bridge"
   memory                   = "512"
   cpu                      = "512"
